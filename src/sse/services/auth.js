@@ -77,7 +77,16 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       };
     }
 
-    const connections = await getProviderConnections({ provider: providerId, isActive: true, tenantId });
+    let connections = await getProviderConnections({ provider: providerId, isActive: true, tenantId });
+    // Una cuenta (tenant) sin conexiones propias para este proveedor cae al pool compartido/admin
+    // (tenantId NULL) en vez de fallar: así el servicio sigue funcionando con lo que ya había
+    // antes de que existieran los tenants, hasta que esa cuenta conecte algo suyo. Esto NO aplica
+    // cuando se pidió explícitamente el pool compartido (tenantId === null) ni cuando no hay
+    // contexto de tenant (tenantId === undefined, ya ve todo).
+    if (connections.length === 0 && typeof tenantId === "string" && tenantId) {
+      connections = await getProviderConnections({ provider: providerId, isActive: true, tenantId: null });
+      log.debug("AUTH", `${provider} | tenant ${tenantId.slice(0, 8)} sin conexiones propias, usando el pool compartido (${connections.length})`);
+    }
     log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
 
     if (connections.length === 0) {
