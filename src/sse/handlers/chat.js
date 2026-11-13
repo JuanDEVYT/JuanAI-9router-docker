@@ -274,6 +274,11 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   // Extract userAgent from request
   const userAgent = request?.headers?.get("user-agent") || "";
 
+  // Multi-tenant isolation: handleSingleModelChat is a separate function from
+  // the one that resolves tenantId for combo/solo dispatch above, so it must
+  // resolve it again here rather than close over an out-of-scope variable.
+  const tenantId = await getRequestTenantId(request);
+
   // Try with available accounts (fallback on errors)
   const excludeConnectionIds = new Set();
   let lastError = null;
